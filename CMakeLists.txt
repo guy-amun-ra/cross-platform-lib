@@ -5,7 +5,8 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" VERSION_STRING)
 string(STRIP "${VERSION_STRING}" VERSION_STRING)
 
 # Set project name and version
-project(cross-platform-lib VERSION ${VERSION_STRING} LANGUAGES C CXX)
+project(cross_platform_lib VERSION ${VERSION_STRING} LANGUAGES C CXX)
+set(OUTPUT_NAME "cross_platform_lib")
 
 include(FetchContent)
 
@@ -20,7 +21,7 @@ if(UNIX)
     set(CMAKE_SKIP_BUILD_RPATH FALSE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-    
+
     # Set RPATH for use in the build tree
     if(APPLE)
         set(CMAKE_INSTALL_RPATH "@loader_path/../lib")
@@ -43,9 +44,30 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 include_directories(include)
 
 # Add source files
+set(COMMON_SOURCES
+    src/common/cross_platform_lib.c
+    src/common/version.c
+)
+
+set(WINDOWS_SOURCES "")
+if(WIN32)
+    # Configure the Windows resource file
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/version.rc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
+        @ONLY
+    )
+    
+    set(WINDOWS_SOURCES
+        src/windows/cross_platform_lib.def
+        "${CMAKE_CURRENT_BINARY_DIR}/version.rc"
+    )
+endif()
+
+# Combine all sources
 set(SOURCES
-    src/cross_platform_lib.c
-    src/version.c
+    ${COMMON_SOURCES}
+    ${WINDOWS_SOURCES}
 )
 
 # Create dynamic library
@@ -55,11 +77,20 @@ add_library(${PROJECT_NAME} SHARED ${SOURCES})
 add_library(${PROJECT_NAME}_static STATIC ${SOURCES})
 
 # Set properties for shared library
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-    OUTPUT_NAME ${PROJECT_NAME}
-)
+if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        OUTPUT_NAME "cross_platform_lib"  # Explicitly set name with underscores
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        PREFIX ""
+    )
+else()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+        OUTPUT_NAME ${PROJECT_NAME}
+    )
+endif()
 
 # Set properties for static library
 set_target_properties(${PROJECT_NAME}_static PROPERTIES
@@ -83,7 +114,7 @@ target_compile_definitions(${PROJECT_NAME}_static PRIVATE
 
 # Platform-specific compile definitions
 if(WIN32)
-    target_compile_definitions(${PROJECT_NAME} 
+    target_compile_definitions(${PROJECT_NAME}
         PRIVATE CROSS_PLATFORM_LIB_EXPORTS
         PUBLIC CROSS_PLATFORM_LIB_DLL)
     
@@ -91,11 +122,10 @@ if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:${PROJECT_NAME}>"
-        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>")
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:${PROJECT_NAME}>")
 elseif(APPLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES
-        MACOSX_RPATH ON
-    )
+        MACOSX_RPATH ON)
 endif()
 
 # Options for building examples and tests
@@ -119,7 +149,6 @@ if(BUILD_TESTS)
     # For Windows: Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
-    
     enable_testing()
     include(GoogleTest)
     add_subdirectory(tests)
