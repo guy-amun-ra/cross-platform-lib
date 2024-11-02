@@ -52,6 +52,18 @@ Example:
 python rename_project.py cross-platform-lib my-awesome-lib "John Doe"
 ```
 
+## Running the Examples
+
+For quick testing in the build directory:
+```bash
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:path/to/build/lib ./build/bin/dynamic_example
+```
+
+For installed binaries:
+```bash
+./bin/dynamic_example
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
