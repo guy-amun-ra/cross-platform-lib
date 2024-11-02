@@ -5,7 +5,9 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" VERSION_STRING)
 string(STRIP "${VERSION_STRING}" VERSION_STRING)
 
 # Set project name and version
-project(cross-platform-lib VERSION ${VERSION_STRING} LANGUAGES C)
+project(cross-platform-lib VERSION ${VERSION_STRING} LANGUAGES C CXX)
+
+include(FetchContent)
 
 # For non-Windows systems, set rpath to find the shared library relatively to the installed binary
 if(UNIX)
@@ -96,7 +98,19 @@ endif()
 
 # Add tests
 if(BUILD_TESTS)
+    # Fetch and make Google Test available
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.12.1
+    )
+    
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+    
     enable_testing()
+    include(GoogleTest)
     add_subdirectory(tests)
 endif()
 
