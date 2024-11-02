@@ -9,19 +9,27 @@ project(cross-platform-lib VERSION ${VERSION_STRING} LANGUAGES C CXX)
 
 include(FetchContent)
 
-# For non-Windows systems, set rpath to find the shared library relatively to the installed binary
+# Set output directories for all platforms
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+
+# Platform-specific settings
 if(UNIX)
     # Enable RPATH
     set(CMAKE_SKIP_BUILD_RPATH FALSE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
+    
     # Set RPATH for use in the build tree
     if(APPLE)
         set(CMAKE_INSTALL_RPATH "@loader_path/../lib")
     else()
         set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
     endif()
+elseif(WIN32)
+    # Windows-specific settings
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
 # Output the project version
@@ -30,11 +38,6 @@ message(STATUS "Building ${PROJECT_NAME} version ${PROJECT_VERSION}")
 # Specify the C standard
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
-
-# Set library output directory for both static and dynamic libraries
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
 # Include directories
 include_directories(include)
@@ -64,23 +67,31 @@ set_target_properties(${PROJECT_NAME}_static PROPERTIES
 )
 
 # Define LIBRARY_VERSION for use in source files
-target_compile_definitions(${PROJECT_NAME} PRIVATE 
-    LIBRARY_VERSION="${PROJECT_VERSION}"
-    LIBRARY_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-    LIBRARY_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-    LIBRARY_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-)
-target_compile_definitions(${PROJECT_NAME}_static PRIVATE 
+target_compile_definitions(${PROJECT_NAME} PRIVATE
     LIBRARY_VERSION="${PROJECT_VERSION}"
     LIBRARY_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
     LIBRARY_VERSION_MINOR=${PROJECT_VERSION_MINOR}
     LIBRARY_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-# Platform-specific settings
+target_compile_definitions(${PROJECT_NAME}_static PRIVATE
+    LIBRARY_VERSION="${PROJECT_VERSION}"
+    LIBRARY_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    LIBRARY_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    LIBRARY_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+)
+
+# Platform-specific compile definitions
 if(WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE CROSS_PLATFORM_LIB_EXPORTS)
-    target_compile_definitions(${PROJECT_NAME}_static PRIVATE CROSS_PLATFORM_LIB_STATIC)
+    target_compile_definitions(${PROJECT_NAME} 
+        PRIVATE CROSS_PLATFORM_LIB_EXPORTS
+        PUBLIC CROSS_PLATFORM_LIB_DLL)
+    
+    # Copy DLL to bin directory for Windows
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:${PROJECT_NAME}>"
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>")
 elseif(APPLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_RPATH ON
@@ -123,15 +134,6 @@ install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_static
 
 # Install headers
 install(DIRECTORY include/ DESTINATION include)
-
-# Copy shared library to bin directory for Windows
-if(WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:${PROJECT_NAME}>
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-    )
-endif()
 
 # Doxygen documentation (uncomment when ready)
 # find_package(Doxygen)

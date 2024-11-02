@@ -6,7 +6,7 @@
 #define LIBRARY_VERSION "0.0.0"
 #endif
 
-const char* get_library_version() {
+const char* get_library_version(void) {  
     static char version[15];
     snprintf(version, sizeof(version), "%s", LIBRARY_VERSION);
     return version;
