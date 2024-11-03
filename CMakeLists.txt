@@ -105,13 +105,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     LIBRARY_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 )
 
-target_compile_definitions(${PROJECT_NAME}_static PRIVATE
-    LIBRARY_VERSION="${PROJECT_VERSION}"
-    LIBRARY_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-    LIBRARY_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-    LIBRARY_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-)
-
 # Platform-specific compile definitions
 if(WIN32)
     target_compile_definitions(${PROJECT_NAME}
@@ -139,6 +132,19 @@ endif()
 
 # Add tests
 if(BUILD_TESTS)
+    # Configure GTest for MinGW cross-compilation
+    if(MINGW)
+        set(gtest_disable_pthreads ON CACHE BOOL "" FORCE)
+        set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+        
+        # Additional flags for MinGW threading support
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static")
+    elseif(WIN32)
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    endif()
+
     # Fetch and make Google Test available
     FetchContent_Declare(
         googletest
@@ -146,8 +152,10 @@ if(BUILD_TESTS)
         GIT_TAG release-1.12.1
     )
     
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    # Additional GTest configuration
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    
     FetchContent_MakeAvailable(googletest)
     enable_testing()
     include(GoogleTest)

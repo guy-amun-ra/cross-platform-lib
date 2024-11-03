@@ -1,0 +1,2 @@
+# for pe_resource_parser.py
+pefile==2024.8.26
