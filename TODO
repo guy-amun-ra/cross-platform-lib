@@ -1,0 +1,3 @@
+- Update rename_project.py to support all relevant files
+- Add Doxygen support
+- Add github actions to build and provide release artifacts
